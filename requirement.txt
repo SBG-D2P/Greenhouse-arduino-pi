@@ -1,0 +1,6 @@
+minimalmodbus
+datetime
+httpclient
+httplib2
+pyserial
+urllib3
