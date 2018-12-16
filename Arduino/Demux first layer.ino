@@ -1,3 +1,7 @@
+/**
+ * For more about the interface of the library go to
+ * https://github.com/pAIgn10/MUX74HC4067
+ */
 //--------------------------------------ledStates used to set the LEDs--------------------------------
 int OFF = LOW;             
 int ON = HIGH;
@@ -109,7 +113,7 @@ Serial.println(" ");
 //-------------------------------------Setup-of-parameter-for-modbus-----------------------------------
 uint16_t au16data[16] = {                            // data array for modbus network sharing
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1 }; //last two entries must remain 1 and -1 for code to run properly
-// {
+// {[0]checkpoint, [1]mode on arduino, [2]probe being red, [3]Value being red
 
 #include <ModbusRtu.h>
  
