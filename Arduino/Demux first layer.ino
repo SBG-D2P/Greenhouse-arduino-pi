@@ -1,7 +1,3 @@
-/**
- * For more about the interface of the library go to
- * https://github.com/pAIgn10/MUX74HC4067
- */
 //--------------------------------------ledStates used to set the LEDs--------------------------------
 int OFF = LOW;             
 int ON = HIGH;
