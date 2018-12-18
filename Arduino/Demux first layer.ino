@@ -1,4 +1,8 @@
-//--------------------------------------ledStates used to set the LEDs--------------------------------
+/**
+ * For more about the interface of the library go to
+ * https://github.com/pAIgn10/MUX74HC4067
+ */
+//--------------------------------------States-used-for-DEMUX-----------------------------------------
 int OFF = LOW;             
 int ON = HIGH;
 //----------------------------------------------------------------------------------------------------
@@ -23,11 +27,11 @@ int SS3 = 5;
 int E2 = 4;
 
 int Selector[] = {S0, S1, S2, S3};
+int TwoDDataArray[16][16];
 
 //----------------------------------------------------------------------------------------------------
 
 //------------------------------------------SETUP-FOR-DEMUX-------------------------------------------
-
 int DEMUX[16][4] = { {OFF, OFF, OFF, OFF}
 ,{ON, OFF, OFF, OFF}
 ,{OFF, ON, OFF, OFF}
@@ -96,11 +100,12 @@ for (int i = 0; i < 16; ++i) {
             delay(10);
             }
       }
-for (int i = 0; i < 16; ++i) {
+      //put 2D array instead to store data while waiting for Rpi
+/*for (int i = 0; i < 16; ++i) {
 Serial.print(SensorSoil[i]);
 }
 Serial.println(" ");
-
+*/
 }
 
 }
@@ -109,7 +114,7 @@ Serial.println(" ");
 //-------------------------------------Setup-of-parameter-for-modbus-----------------------------------
 uint16_t au16data[16] = {                            // data array for modbus network sharing
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1 }; //last two entries must remain 1 and -1 for code to run properly
-// {[0]checkpoint, [1]mode on arduino, [2]probe being red, [3]Value being red
+// {[0]checkpoint, [1]mode on arduino, [2]ID of probe being red, [3]Value being red
 
 #include <ModbusRtu.h>
  
@@ -157,8 +162,32 @@ void loop()
 {
 
 slave.poll( au16data, 16 );
-Plugged();
-Measuring();
+
+if (au16data[1] == 0) {
+  delay(1);
+  return; 
+}
+
+else if (au16data[1] == 1) {
+  Plugged();
+}
+
+else if (au16data[1] == 2) {
+  Measuring(); //put 2D array instead to store data while waiting for Rpi
+}
+
+else if (au16data[1] == 3) {
+  //Data() measuring
+  for (int i = 0; i < 16; i++){
+      au16data[3] = TwoDDataArray[i][au16data[2]];
+      slave.poll( au16data, 16 );
+
+
+
+
+
+  }
+}
 
 }
 //=====================================================================================================
