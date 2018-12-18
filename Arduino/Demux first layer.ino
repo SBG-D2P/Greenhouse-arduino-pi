@@ -1,18 +1,14 @@
-/**
- * For more about the interface of the library go to
- * https://github.com/pAIgn10/MUX74HC4067
- */
 //--------------------------------------States-used-for-DEMUX-----------------------------------------
 int OFF = LOW;             
 int ON = HIGH;
 //----------------------------------------------------------------------------------------------------
 
 //--------------------------------------PINS-SETUP-RELAY-PAIRS----------------------------------------
-int First = A0; // set input at pin A0
-int Second = A1;
+int First = A0; // Pin A0 as pin for plugged detectors
+int Second = A1; // sensor pin for incoming data
 
-int Layer1 = 0;
-int SensorSoil[16];
+int Layer1 = 0;  //value used to see if sensors are plugged
+int SensorSoil[16]; // to remove once 2D data arary is used instead
 
 int S0 = 10;   //output pin for demux control
 int S1 = 11;
@@ -26,8 +22,7 @@ int SS2 = 6;
 int SS3 = 5;
 int E2 = 4;
 
-int Selector[] = {S0, S1, S2, S3};
-int TwoDDataArray[16][16];
+int TwoDDataArray[16][16];//array to store data from all measured sensors
 
 //----------------------------------------------------------------------------------------------------
 
@@ -145,13 +140,7 @@ void setup()
   pinMode(E2, OUTPUT);
   pinMode(Second, INPUT);
 
-  Serial.begin(9600);
   slave.begin( 19200 ); // baud-rate at 19200
-
-  au16data[1] = 0;  //SensorValue - set initial variable for current detector
-  au16data[2] = 0;  //SensorValue2 - set initial variable for current detector
-  au16data[3] = 0;  //Relay1Status - 0 means OFF, 1 means ON, 2 means FAILED-fused, 3 means FAILED-coil
-  au16data[4] = 0;  //Relay1Status2 - 0 means OFF, 1 means ON, 2 means FAILED-fused, 3 means FAILED-coil
   }
 //-----------------------------------------------------------------------------------------------------
 
@@ -177,17 +166,13 @@ else if (au16data[1] == 2) {
 }
 
 else if (au16data[1] == 3) {
-  //Data() measuring
+  //DataTransfert(int x){ measuring x is au16data[2]
   for (int i = 0; i < 16; i++){
-      au16data[3] = TwoDDataArray[i][au16data[2]];
-      slave.poll( au16data, 16 );
-
-
-
-
+      au16data[3] = TwoDDataArray[i][i];// replace the expression by au16data[3] = TwoDDataArray[i][x];
+      slave.poll( au16data, 16 ); //put 40 miliseconds delay in the pythonscript
 
   }
 }
-
+au16data[1] = 0;
 }
 //=====================================================================================================
