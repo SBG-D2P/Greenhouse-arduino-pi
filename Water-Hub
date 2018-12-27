@@ -1,0 +1,47 @@
+
+import subprocess
+import time
+import RPi.GPIO as GPIO
+import urllib.request, urllib.parse, urllib.error
+import http.client
+import minimalmodbus
+import datetime
+import serial
+
+Water1 = minimalmodbus.Instrument('/dev/ttyUSB0', 2) #port name , slave address(in decimal)
+Water1.serial.baudrate                                      = 19200
+Water1.serial.bytesize                                      = 8
+Water1.serial.parity                                        = serial.PARITY_NONE
+Water1.serial.stopbits                                      = 1
+Water1.serial.timeout                                       = 1                             # secondes
+Water1.mode                                                 = minimalmodbus.MODE_RTU        # rtu ou ascii // MODE_ASCII ou MODE_RTU
+Water1.debug                                                = False
+Water1.serial.xonxoff                                       = True
+Water1.serial.rtscts                                        = False
+Water1.serial.dsrdtr                                        = False
+minimalmodbus.CLOSE_PORT_AFTER_EACH_CALL        = True
+    
+
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------#
+#Water1.write_register(1, 1, 0)
+Water1.write_register(2, 7, 0) #array position 2 probe 7
+Water1.write_register(1, 2, 0) #array position 1 mode measuring
+time.sleep(0.2)
+Water1.write_register(7, 10, 0)#array position 7 level 10 of the probe
+Water1.write_register(1, 3, 0)#array position 1 mode data transfert (position, value, decimal)
+time.sleep(0.1)
+for x in range(0,16):#checks every time point where measurment is expected
+    time.sleep(0.04)
+    #Water1.write_register(1, 1, 0)#tells arduino to check which probes are plugged
+    Integer = Water1.read_register(x,0)#fetch info about plugged detectors
+    #Integer = bin(Integer)
+    print(Integer)
+
+for y in range(1,16):
+    Water1.write_register(7, y, 0)#array position 7 level y of the probe
+    Water1.write_register(1, 3, 0)#array position 1 mode data transfert 
+    Integer = Water1.read_register(3,0)#fetch info about plugged detectors position 3 of array
+    print(Integer)
+    
+
