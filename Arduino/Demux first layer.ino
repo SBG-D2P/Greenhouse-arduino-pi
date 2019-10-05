@@ -42,7 +42,7 @@ int S0 = 5;   //output pin for demux control of the moiture detection (remote de
 int S1 = 6;
 int S2 = 7;
 int S3 = 8;
-int Enable = 4;// pin to enable the whole system via PNP transistor(shift register and probes)
+int Enable = 12;// pin to enable the whole system via PNP transistor(shift register and probes)
 
 int TwoDDataArray[16][16];//array to store data from all measured sensors
 //uint16_t TwoDDataArray[16];
@@ -76,8 +76,8 @@ int dataPin = 9;//change pin number
 int clockPin = 10;//change pin number
 int SREnable = 12;// shift register enable
 
-int SR1[] = {255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 253, 251, 247, 239, 223, 191, 127};  //binary number to select single channel to not be equal to 1 (e.g. 110111) for first shift register
-int SR2[] = {255, 254, 253, 251, 247, 239, 223, 191, 127, 255, 255, 255, 255, 255, 255, 255, 255};  //idem for second shift register. (will overflow-cascade into the other one)
+int SR1[] = {255, 255, 255, 255, 255, 255, 255, 255, 254, 253, 251, 247, 239, 223, 191, 127, 255};  //binary number to select single channel to not be equal to 1 (e.g. 110111) for first shift register
+int SR2[] = {254, 253, 251, 247, 239, 223, 191, 127, 255, 255, 255, 255, 255, 255, 255, 255, 255};  //idem for second shift register. (will overflow-cascade into the other one)
 //------------------------------------------------------------------------------------------------------
 
 //-------------------------------------FUNCTION-FOR-SHIFT-REGISTER--------------------------------------
@@ -105,22 +105,22 @@ void Plugged()
     digitalWrite(S3, DEMUX[0][3]);
     delay(10);
   
-  for (int i = 0; i < 16; ++i) {// loops through probes
+  for (int i = 0; i < 16; ++i) {// loops through probes 1 to 16
 
     ShiftOut(i);
     delay(100);
-    int Measurement = analogRead(SensorPin);
+    int Measurement = analogRead(SensorPin);//led flashes and sends back current if plugged in hub
     delay(100);
     
     if (Measurement > 450) { // adds probe to binary list if there was current flowing (present value is 630 mV with setup)
     
       au16data[4] = au16data[4] + round(pow(2, i));// adds probe to number in binary form needs rounding otherwise returns too small value from floating point
-      au16data[5] = Measurement;
+      //au16data[5] = Measurement;
     }
     delay (10);
   }
- au16data[1] = 0;
- ShiftOut(0);
+ au16data[1] = 0;//sets arduino in waiting mode
+ ShiftOut(16);// disables all demux probes
 }
 //------------------------------------------------------------------------------------------------------
 
@@ -136,11 +136,11 @@ void Measuring(uint16_t& p) {
     digitalWrite(S3, DEMUX[k][3]);
     ShiftOut(x);
 
-    delay(10);  //delay to let pads electrify properly
+    delay(100);  //delay to let pads electrify properly
     int Measurement = analogRead(SensorPin); //measure voltage
-    ShiftOut(0);
+    ShiftOut(16);
     TwoDDataArray[x][k] = Measurement; //storing data in main array
-    //slave.poll( au16data, 16 ); //put 40 miliseconds delay in the pythonscript
+
     delay(5);
   }
    au16data[1] = 0;
@@ -149,11 +149,8 @@ void Measuring(uint16_t& p) {
 //-----------------------------------------------------------------------------------------------------
 
 //---------------------------------------------Data-Transfert------------------------------------------
-void DataTransfert(uint16_t& x, uint16_t& z, uint16_t& y) {  
-  //for (uint16_t i = 0; i < 16; i++) { //loops through all values of a given probe
-    //z = TwoDDataArray[x][i];
+void DataTransfert(uint16_t& x, uint16_t& y, uint16_t& z) {  
     z = TwoDDataArray[x][y];
-  //}
   au16data[1] = 0;
 }
 //-----------------------------------------------------------------------------------------------------
@@ -200,22 +197,21 @@ void setup()
 {
 
 
-  pinMode(S0, OUTPUT);
+  pinMode(S0, OUTPUT);// Demux for probes
   pinMode(S1, OUTPUT);
   pinMode(S2, OUTPUT);
   pinMode(S3, OUTPUT);
-  pinMode(SensorPin, INPUT);
+  
+  pinMode(SensorPin, INPUT);//measuring pin for all probes
 
-  pinMode(dataPin, OUTPUT);
+  pinMode(dataPin, OUTPUT); //shift registers for probes
   pinMode(clockPin, OUTPUT);
   pinMode(latchPin, OUTPUT);
 
-  //ShiftOut(0);
+  slave.begin( 19200 ); // baud-rate at 19200 (rs485)
+  dht.begin(); //begin the temprature/humidity sensor 
 
-  slave.begin( 19200 ); // baud-rate at 19200
-   dht.begin(); //begin the sensor 
-
-  //Plugged();//check which probes are plugged when device is started or reseted --  must be last line of setup
+  Plugged();//check which probes are plugged when device is started or reseted --  must be last line of setup
 }
 //-----------------------------------------------------------------------------------------------------
 
@@ -224,7 +220,6 @@ void setup()
 //=============================================Main-Loop===============================================
 void loop()
 {
-  //ShiftOut(0);
   slave.poll( au16data, 16 );
 
   if (au16data[1] == 0) {
@@ -241,7 +236,7 @@ void loop()
   }
 
   else if (au16data[1] == 3) {
-    DataTransfert(au16data[2], au16data[3], au16data[7]);//(Probe being red, Value(level) being red, Indicates which level to read)
+    DataTransfert(au16data[2], au16data[7], au16data[3]);//(Probe being red, Indicates which level to read, Value(level) being red)
   }
 
  /* else if (au16data[1] == 4) {
