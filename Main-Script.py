@@ -26,3 +26,19 @@ while True:
     
     time.sleep(1)
 
+'''
+Test code to measure and gather data from probe
+#while True:
+
+for n in range(0,16):  
+    Water.Water1.write_register(2, n, 0) #write probe number n no deciaml - register number, number of decimals
+    time.sleep(0.04)
+    Status = Water.Water1.read_register(2,0) #register number, number of decimals 
+    print(Status)
+    Water.Water1.write_register(1, 2, 0) #register number, number of decimals
+    time.sleep(5)
+    #Status = Water.Water1.read_register(1,0) #register number, number of decimals 
+    #print(Status)
+    Water.FetchData(n)        
+   
+'''
