@@ -1,4 +1,4 @@
-
+import Adafruit_DHT
 import subprocess
 import time
 import RPi.GPIO as GPIO
@@ -7,6 +7,9 @@ import http.client
 import minimalmodbus
 import datetime
 import serial
+import pandas as pd
+import numpy as np
+
 
 Water1 = minimalmodbus.Instrument('/dev/ttyUSB0', 2) #port name , slave address(in decimal)
 Water1.serial.baudrate                                      = 19200
@@ -20,28 +23,64 @@ Water1.serial.xonxoff                                       = True
 Water1.serial.rtscts                                        = False
 Water1.serial.dsrdtr                                        = False
 minimalmodbus.CLOSE_PORT_AFTER_EACH_CALL        = True
-    
+
+#--------------------------------------Array for slaves-and-Data--------------------------------------------------------------------------------
+Plants = [0]*260 # create array that has all slaves in it (zero is not used as it's the master)
+for n in range(260):
+    Plants[n]=[0]*18 # Creats sub-Arrays for every slaves which have 16 probes at most (n = 16 Temperature, n = 17 humidity, n = 18 plugged probes)
+
+"""for n in range(16):
+    Plants[2][n] = [0]*16 # Creates a thrid dimention to hold data at every level of the probe"""
+#--------------------------------------------------------------------------------------------------------------------------------------
 
 
-#-----------------------------------------------------------------------------------------------------------------------------------------------#
-#Water1.write_register(1, 1, 0)
-Water1.write_register(2, 7, 0) #array position 2 probe 7
-Water1.write_register(1, 2, 0) #array position 1 mode measuring
-time.sleep(0.2)
-Water1.write_register(7, 10, 0)#array position 7 level 10 of the probe
-Water1.write_register(1, 3, 0)#array position 1 mode data transfert (position, value, decimal)
-time.sleep(0.1)
-for x in range(0,16):#checks every time point where measurment is expected
-    time.sleep(0.04)
-    #Water1.write_register(1, 1, 0)#tells arduino to check which probes are plugged
-    Integer = Water1.read_register(x,0)#fetch info about plugged detectors
-    #Integer = bin(Integer)
-    print(Integer)
+#--------------------------------------------------------------------------------------------------------------------------------------
+def Plugged():#ask hub to check which probes are plugged and convert 16bit number into an array
+    #Water1.write_register(1, 1, 0)#array position 1 mode "plugged"
+    #time.sleep(10)
+    num = Water1.read_register(4,0) #fetch info about which probes are plugged (position 4 of array, 0 decimal)
+    plugged = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    for n in range(1,17):
+        bitpos = n
+        plugged[n-1] = (num >> (bitpos-1))&1
+#--------------------------------------------------------------------------------------------------------------------------------------
+Slave = 2
 
-for y in range(1,16):
-    Water1.write_register(7, y, 0)#array position 7 level y of the probe
-    Water1.write_register(1, 3, 0)#array position 1 mode data transfert 
-    Integer = Water1.read_register(3,0)#fetch info about plugged detectors position 3 of array
-    print(Integer)
-    
+def Plugged(Slave):#ask hub to check which probes are plugged and convert 16bit number into an array
+    #Water1.write_register(1, 1, 0)#array position 1 mode "plugged"
+    #time.sleep(10)
+    num = Water1.read_register(4,0) #fetch info about which probes are plugged (position 4 of array, 0 decimal)
+    for n in range(1,17):
+        bitpos = n
+        Plants[Slave][n-1] = (num >> (bitpos-1))&1
+    print(Plants[Slave])
+
+
+
+#--------------------------------------------------------------------------------------------------------------------------------------
+ProbeID = 0
+def FetchData(ProbeID):
+    Plants[2][ProbeID] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    Water1.write_register(2, ProbeID, 0) #tells which probe to get data from -- array position 2 probe n
+    time.sleep(.04)
+    Water1.write_register(1, 2, 0) #tells slave to measure (mode 2) indicated probe
+    time.sleep(10)
+    for i in range(0,16):#loops between each level of the probe
+        Water1.write_register(7, i, 0) #tells which level of the probe to get data from -- array position 7 probe n
+        time.sleep(.04)
+        Water1.write_register(1, 3, 0)#tells arduino to enter data transfer mode
+        time.sleep(0.1)
+        Plants[Slave][ProbeID][i] = Water1.read_register(3, 0)#read value written by arduino for measurement
+        time.sleep(0.05)
+        Plants[Slave][ProbeID][i]
+    print(Plants[Slave][ProbeID])
+                            
+#--------------------------------------------------------------------------------------------------------------------------------------
+Plugged(2)
+FetchData(0)
+
+df = pd.DataFrame(np.array(Plants[2]))
+time.sleep(0.04)
+df.to_csv('Data.csv', mode='a', sep= '\t', index=False, header=False)
+
 
