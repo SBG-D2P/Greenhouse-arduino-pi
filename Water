@@ -39,6 +39,7 @@ def ProbesPlugged(Slave):#ask hub to check which probes are plugged and convert 
     for n in range(1,17):
         bitpos = n
         Probes[n-1] = (num >> (bitpos-1))&1
+    print(Probes)
     return Probes
 #--------------------------------------------------------------------------------------------------------------------------------------
 
