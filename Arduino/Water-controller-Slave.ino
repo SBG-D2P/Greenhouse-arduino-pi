@@ -25,7 +25,7 @@ uint16_t au16data[16] = {                            // data array for modbus ne
     u8txenpin : 0 for RS-232 and USB-FTDI
                  or any pin number > 1 for RS-485
 */
-Modbus slave(2, 0, 3); // this is slave 2 and RS-485 on pin 3
+Modbus slave(2, 0, 3); // this is slave 2 and RS-485 on pin 3 (and pin 4 for RE)
 //-----------------------------------------------------------------------------------------------------
 
 //--------------------------------------States-used-for-DEMUX-----------------------------------------
@@ -42,7 +42,7 @@ int S0 = 5;   //output pin for demux control of the moiture detection (remote de
 int S1 = 6;
 int S2 = 7;
 int S3 = 8;
-int Enable = 4;// pin to enable the whole system via PNP transistor(shift register and probes)
+//int Enable = 4;// pin to enable the whole system via PNP transistor(shift register and probes)
 
 int TwoDDataArray[16][16];//array to store data from all measured sensors
 //uint16_t TwoDDataArray[16];
@@ -76,18 +76,28 @@ int dataPin = 9;//change pin number
 int clockPin = 10;//change pin number
 int SREnable = 12;// shift register enable
 
-int SR1[] = {255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 253, 251, 247, 239, 223, 191, 127};  //binary number to select single channel to not be equal to 1 (e.g. 110111) for first shift register
-int SR2[] = {255, 254, 253, 251, 247, 239, 223, 191, 127, 255, 255, 255, 255, 255, 255, 255, 255};  //idem for second shift register. (will overflow-cascade into the other one)
+int SR1[] = {255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 253, 251, 247, 239, 223, 191, 127,0};  //binary number to select single channel to not be equal to 1 (e.g. 110111) for first shift register
+int SR2[] = {255, 254, 253, 251, 247, 239, 223, 191, 127, 255, 255, 255, 255, 255, 255, 255, 255,0};  //idem for second shift register. (will overflow-cascade into the other one)
+
+//int SR1[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 4, 8,16,32,64,128,0};  //binary number to select single channel to not be equal to 1 (e.g. 110111) for first shift register
+//int SR2[] = {0, 1, 2, 4, 8,16,32,64,128, 0, 0, 0, 0, 0, 0, 0, 0,0};  //idem for second shift register. (will overflow-cascade into the other one)
+
+
 //------------------------------------------------------------------------------------------------------
 
 //-------------------------------------FUNCTION-FOR-SHIFT-REGISTER--------------------------------------
 void ShiftOut(int g)//change g accordingly here "uint16_t& x"
 {
+  digitalWrite(SREnable, LOW);
+  delay(10);
   digitalWrite(latchPin, LOW);
   delay(100);
   shiftOut(dataPin, clockPin, MSBFIRST, SR1[g]);
+  delay(5);
   shiftOut(dataPin, clockPin, MSBFIRST, SR2[g]);
+  delay(5);
   digitalWrite(latchPin, HIGH);
+  delay(100);
   
 }
 //------------------------------------------------------------------------------------------------------
@@ -96,7 +106,7 @@ void ShiftOut(int g)//change g accordingly here "uint16_t& x"
 void Plugged()
 {
   au16data[4] = 0;//storing which probes are plugged in in a "binary" fashion 1 == only first; 9 == first and third (0000000000000101) I think negative is for the last one
-
+digitalWrite(SREnable, LOW);
     ShiftOut(0);// disable all probes before setting demux to I0 (LED)
     delay(10);
     digitalWrite(S0, DEMUX[0][0]);
@@ -105,7 +115,7 @@ void Plugged()
     digitalWrite(S3, DEMUX[0][3]);
     delay(10);
   
-  for (int i = 0; i < 16; ++i) {// loops through probes
+  for (int i = 0; i < 17; ++i) {// loops through probes
 
     ShiftOut(i);
     delay(100);
@@ -121,6 +131,8 @@ void Plugged()
   }
  au16data[1] = 0;
  ShiftOut(0);
+ digitalWrite(SREnable, HIGH);
+ 
 }
 //------------------------------------------------------------------------------------------------------
 
@@ -150,6 +162,8 @@ void Measuring(uint16_t& p) {
 
 //---------------------------------------------Data-Transfert------------------------------------------
 void DataTransfert(uint16_t& x, uint16_t& z, uint16_t& y) {  
+  digitalWrite(SREnable, HIGH);
+  delay(10);
   //for (uint16_t i = 0; i < 16; i++) { //loops through all values of a given probe
     //z = TwoDDataArray[x][i];
     z = TwoDDataArray[x][y];
@@ -211,7 +225,7 @@ void setup()
   pinMode(latchPin, OUTPUT);
 
   //ShiftOut(0);
-
+  digitalWrite(SREnable, HIGH);
   slave.begin( 19200 ); // baud-rate at 19200
    dht.begin(); //begin the sensor 
 
@@ -225,6 +239,8 @@ void setup()
 void loop()
 {
   //ShiftOut(0);
+  digitalWrite(SREnable, HIGH);
+  delay(10);
   slave.poll( au16data, 16 );
 
   if (au16data[1] == 0) {
