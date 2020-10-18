@@ -8,5 +8,5 @@ import numpy as np
  df3 = pd.read_csv('Data.csv',names=columns, header=None)
 df4[df.probeID = 'ProbeID'] #probeID is temporary and should be replaced with the actuall column's name and variable
 df5 = df4.tail(2)
-
- 
+df6 = df4[1] - df4[2]
+df6.drop(columns=18)
