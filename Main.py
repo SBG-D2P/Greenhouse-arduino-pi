@@ -176,6 +176,96 @@ def Light():
                 
 #----------------------------------------------------------------------------------------------------------
 
+#------------------------------------------------------Water hub probes----------------------------------------------------------
+
+Probes = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0] # array to check which probes are plugged
+
+def ProbesPlugged(Slave):#ask hub to check which probes are plugged and convert 16bit number into an array
+
+    SlaveID[Slave].write_register(1, 1, 0)#array position 1 mode "plugged"
+    time.sleep(10)
+    num = SlaveID[Slave].read_register(4,0) #fetch info about which probes are plugged (position 4 of array, 0 decimal)
+    for n in range(1,17):
+        bitpos = n
+        Probes[n-1] = (num >> (bitpos-1))&1
+    #print(Probes)
+    return Probes
+#--------------------------------------------------------------------------------------------------------------------------------------
+
+
+#-------------------------------Gather soil moisture data as CSV------------------------------------------------------------------------
+
+TemporaryData = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]#measure for level 0-15 and 16 = Temp°C, 17 = Humi%, 18 = slaveID + prodeID, 19 = Date
+
+def FetchData(ProbeID,Slave):
+
+    TemporaryData = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    TemporaryData[18] = str(Slave) + '-' + str(ProbeID)#identifiyer for each plant
+    SlaveID[Slave].write_register(2, ProbeID, 0) #tells which probe to get data from -- array position 2 probe n
+    time.sleep(.04)
+    SlaveID[Slave].write_register(1, 2, 0) #tells slave to measure (mode 2) indicated probe
+    time.sleep(10)
+    for i in range(0,16):#loops between each level of the probe
+        SlaveID[Slave].write_register(7, i, 0) #tells which level of the probe to get data from -- array position 7 probe n
+        time.sleep(.1)
+        SlaveID[Slave].write_register(1, 3, 0)#tells arduino to enter data transfer mode
+        time.sleep(0.2)
+        TemporaryData[i] = SlaveID[Slave].read_register(3, 0)#read value written by arduino for measurement
+        time.sleep(0.1)
+    print(TemporaryData)
+    return TemporaryData
+
+                            
+#-------------------------------TEMPERATURE-AND-HUMIDITY-VIA-DHT-----------------------------------------------------------------------
+
+Havg = 0
+Tavg = 0
+
+def GetDHT():
+    Water1.write_register(1, 5, 0)#Tell arduino to enter DHT mode
+    time.sleep(0.04)
+    T = Water1.read_register(5, 1)
+    print(T,'°C' )
+    H = Water1.read_register(6, 0)
+    print(H,'%')
+    TemporaryData[16] = T*10 # the data fram will not take floats with other int
+    TemporaryData[17] = H
+    
+#--------------------------------------------------------------------------------------------------------------------------------------
+
+#-------------------------------SAVE-DATA-AS-CSV---------------------------------------------------------------------------------------
+
+def DataToCSV():
+
+    TemporaryData[19] = datetime.datetime.now()
+    df1 = pd.DataFrame(np.array(TemporaryData))
+    df1_transposed = df1.T
+    time.sleep(0.04)
+    df1_transposed.to_csv('Data.csv', mode='a', sep= '\t', index=False, header=False)
+
+
+
+#--------------------------------FUNCTION-CALLED-BY-MAIN-------------------------------------------------------------------------------
+
+def WaterMeasurement():
+    
+    for i in range (100):
+        if CurrentDevices.at[i,'A'] == 2:# Checks if that slave is a water hub
+            Probes = ProbesPlugged(i)    #checks which probes are plugged in that slave
+            print(Probes)
+            time.sleep(1)#0.1
+            for n in range (17)
+                if Probes == 1:
+                    TemporaryData = FetchData(n,i)
+                    time.sleep(1)#0.1
+                    print(TemporaryData)
+                    
+            GetDHT()
+            time.sleep(1)#0.1
+            DataToCSV()
+
+#----------------------------------------------------------------------------------------------------------
+
 while True: #-----------------------MAIN LOOP-----------------------------------------------------
     
     first_time = datetime.datetime.now()
