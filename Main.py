@@ -52,27 +52,31 @@ def Poll():
 #----------------------------------------Pandas Compare Gathered Data------------------------------------------
 def Devices():
     OldDevices = pd.read_csv('Devices.csv', names = Columns)
-    print(OldDevices)
-    print(CurrentDevices)
-    #print(CurrentDevices['A'] < OldDevices['A'])
     
     for k in range (100):
         if CurrentDevices.at[k,'A'] == 0 and OldDevices.at[k,'A'] != 0:
-            print('Device' + str(k) + 'is disconected')
+            print('Device ' + str(k) + ' is disconected')
             #add script for emails
         elif CurrentDevices.at[k,'A'] > 0 and OldDevices.at[k,'A'] == 0:
-            print('Device' + str(k) + 'is now conected')
+            print('Device ' + str(k) + ' is now conected')
             if CurrentDevices.at[k,'A'] == 1:# if Light Controller is connected turn ONOFF are set to default
                 CurrentDevices.at[k,'B'] = 8
                 CurrentDevices.at[k,'C'] = 20
             #CurrentDevices.at[k,'B'] =
         elif CurrentDevices.at[k,'A'] > 0 and OldDevices.at[k,'A'] > 0 and CurrentDevices.at[k,'A'] != OldDevices.at[k,'A']:
             print('Did you change the device?')
+        
+        elif CurrentDevices.at[k,'A'] > 0 and OldDevices.at[k,'A'] > 0 and CurrentDevices.at[k,'A'] == OldDevices.at[k,'A']:
+            CurrentDevices.at[k,'B'] = OldDevices.at[k,'B']
+            CurrentDevices.at[k,'C'] = OldDevices.at[k,'C']
+        
         else:
-            print('else')
-    
+            #print('else')
+            pass
+            
     CurrentDevices.to_csv('Devices.csv', mode='w' ,index=False, header=False)
-    time.sleep(10)
+    return CurrentDevices
+    #time.sleep(10)
 #---------------------------------------------------------------------------------------------------------------
 
 #--------------------------------------Light Controller---------------------------------------------------------
@@ -80,70 +84,108 @@ def Devices():
 def Light():
     for l in range(100):
         if CurrentDevices.at[l,'A'] == 1:
-                start = CurrentDevices.at[l,'B']#loading start and stop time set for specific controllers
-                end = CurrentDevices.at[l,'C']
+            start = CurrentDevices.at[l,'B']#loading start and stop time set for specific controllers
+            end = CurrentDevices.at[l,'C']
     
-                t = datetime.datetime.now()
-                Status = SlaveID[l].read_register(0,1) #register number, number of decimals 
-                #print(Status)
-
-                if t.hour >= start  and t.hour < end and Status != 1: #turns light ON if daytime
-                        SlaveID[l].write_register(0, 1, 0)
-
-
-                elif t.hour >= start  and t.hour < end and Status == 1: #checks if there is a issue with lights during daytime
-                        Relay1 = SlaveID[l].read_register(3,1) #register number, number of decimals
-                        Relay2 = SlaveID[l].read_register(4,1) #register number, number of decimals
-                        if Relay1 != 1 or Relay2 != 1:
-                                print("One relay has failed")
-                                #email
-
-                elif t.hour < start  or t.hour >= end:
-                        if Status != 2: #turns lights OFF during nighttime
-                                SlaveID[l].write_register(0, 2, 0)
-
-                elif  t.hour < start  or t.hour >= end:
-                        if Status ==2:  #checks if there is an issue with lights during nighttime
-                                Relay1 = SlaveID[l].read_register(3,1) #register number, number of decimals
-                                Relay2 = SlaveID[l].read_register(4,1) #register number, number of decimals
-                                if Relay1 != 1 or Relay2 != 1:
-                                    print("y")
-                                    #email
-
+            t = datetime.datetime.now()
+            Relay1 = SlaveID[l].read_register(3,0) #register number, number of decimals
+            Relay2 = SlaveID[l].read_register(4,0) #register number, number of decimals
+############################################### DAY TIME ####################################################                
+            if t.hour >= start  and t.hour < end and Relay1 < 2 and Relay2 == 0: #turns light ON if daytime if relays are OK
+                    SlaveID[l].write_register(0, 1, 0)
+                    time.sleep(1)#wait for relay to turn ON and then check status
+                    Relay1 = SlaveID[l].read_register(3,0) #register number, number of decimals
+                    Relay2 = SlaveID[l].read_register(4,0) #register number, number of decimals
+                    
+                    if Relay1 == 1 and Relay2 == 0:
+                        pass
+                    elif Relay1 == 3 and Relay2 == 1:
+                        print('Coil of Relay 1 in light controller ' + str(l) + ' is broken')
+                        print('Backup relay is ON')
+                    elif Relay1 == 3 and Relay2 != 1:
+                        print('Coil of Relay 1 in light controller ' + str(l) + ' is broken')
+                        print('Backup relay has not turned ON')
+                    
+                    else:
+                        print(Relay1, Relay2)
+                        print('Unknown error1')
+                
+            elif t.hour >= start  and t.hour < end and Relay1 == 3 and Relay2 < 2 : #turns light ON if daytime  if 1st relay has failed
+                    SlaveID[l].write_register(0, 1, 0)
+                    time.sleep(1)#wait for relay to turn ON and then check status
+                    Relay2 = SlaveID[l].read_register(4,0) #register number, number of decimals
+                       
+                    if Relay2 == 1:
+                        pass
+                    elif Relay2 == 3:
+                        print('Coil of backup relay in light controller ' + str(l) + ' is broken')
+                    else:
+                        print(Relay1, Relay2)
+                        print('Unknown error2')
+                           
+            elif t.hour >= start  and t.hour < end and Relay1 == 2 and Relay2 != 0 : #turns light ON if daytime if 1st relays has fused contacts
+                    SlaveID[l].write_register(0, 1, 0)  
+                    time.sleep(1)#wait for relay to turn ON and then check status
+                    Relay2 = SlaveID[l].read_register(4,0) #register number, number of decimals 
+                    if Relay2 == 0:
+                        pass
+                    elif Relay2 == 2:
+                        print('Contacts of backup relay in light controller ' + str(l) + ' have fused')
+                    else:
+                        print(Relay1, Relay2)
+                        print('Unknown error3')    
+                   
+############################################### NIGHT TIME ####################################################                
+            elif t.hour >= start  and t.hour >= end and Relay1 < 3 and Relay2 == 0: #turns light OFF if nightime if
+                    SlaveID[l].write_register(0, 2, 0)
+                    time.sleep(1)#wait for relay to turn ON and then check status
+                    Relay1 = SlaveID[l].read_register(3,0) #register number, number of decimals
+                    Relay2 = SlaveID[l].read_register(4,0) #register number, number of decimals
+                      
+                    if Relay1 == 0 and Relay2 == 0:
+                        pass
+                    elif Relay1 == 2 and Relay2 == 1:
+                        print('Contacts of main relay in light controller ' + str(l) + ' have fused')
+                        print('Back up relay is turned ON')
+                    elif Relay1 ==2 and RElay2 != 1:
+                        print('Contacts of main relay in light controller ' + str(l) + ' have fused')
+                        print('Back up relay has not turned ON')
+                    else:
+                        print(Relay1, Relay2)
+                        print('Unknown error5')
+                
+            elif t.hour >= start  and t.hour >= end and Relay1 == 3: #turns light OFF if nightime if main relay has broken coil broken
+                    SlaveID[l].write_register(0, 2, 0)
+                    time.sleep(1)#wait for relay to turn ON and then check status
+                    Relay1 = SlaveID[l].read_register(3,0) #register number, number of decimals
+                    Relay2 = SlaveID[l].read_register(4,0) #register number, number of decimals
+                    
+                    if Relay1 == 3 and Relay2 == 0:
+                        pass
+                    if Relay1 == 3 and Relay2 == 2:
+                        print('Contacts of backup relay in light controller ' + str(l) + ' have fused')
+                        print('Double failure of relays, attention required now, lights are still ON')
+                    else:
+                        print(Relay1, Relay2)
+                        print('Unknown error6')
+            elif Relay1 == 3 and Relay2 == 3:
+                    print('Double failure of relays coil, attention required now, lights are OFF')
+            else:
+                    print(Relay1, Relay2)
+                    print('Unknown error4')
+                
 #----------------------------------------------------------------------------------------------------------
 
 while True: #-----------------------MAIN LOOP-----------------------------------------------------
     
+    first_time = datetime.datetime.now()
     Poll()
     Devices()
     Light()
-    time.sleep(60)
+    time.sleep(0.1)
+    print('loopey loop')
+  
+    second_time = datetime.datetime.now()
+    difference = second_time - first_time
+    print('refresh time is ' + str(difference) + ' h:mm:ss')
     
-    
-    
-    #num2 = SlaveID[2].read_register(4,0) #fetch info about which probes are plugged (position 4 of array, 0 decimal)
-
-'''
-    start = 11
-    end = start +10
-    Connect = 0
-    Division = 2
-
-
-
-
-
-    
-    if Connect == 5:
-        print ("Device X not connected")
-    try:
-        WaterSequence.WaterOne()
-        
-    except ValueError as error:
-        Connect = Connect + 1
-        print("not connected")
-    
-    time.sleep(1)
-    '''
-   
-#rs485V10.LightOne(start,end) #Function to control lights
