@@ -147,7 +147,7 @@ def Light():
                     elif Relay1 == 2 and Relay2 == 1:
                         print('Contacts of main relay in light controller ' + str(l) + ' have fused')
                         print('Back up relay is turned ON')
-                    elif Relay1 ==2 and RElay2 != 1:
+                    elif Relay1 ==2 and Relay2 != 1:
                         print('Contacts of main relay in light controller ' + str(l) + ' have fused')
                         print('Back up relay has not turned ON')
                     else:
@@ -221,12 +221,12 @@ def FetchData(ProbeID,Slave):
 Havg = 0
 Tavg = 0
 
-def GetDHT():
-    Water1.write_register(1, 5, 0)#Tell arduino to enter DHT mode
-    time.sleep(0.04)
-    T = Water1.read_register(5, 1)
+def GetDHT(Slave):
+    SlaveID[Slave].write_register(1, 5, 0)#Tell arduino to enter DHT mode
+    time.sleep(1.04)
+    T = SlaveID[Slave].read_register(5, 1)
     print(T,'°C' )
-    H = Water1.read_register(6, 0)
+    H = SlaveID[Slave].read_register(6, 0)
     print(H,'%')
     TemporaryData[16] = T*10 # the data fram will not take floats with other int
     TemporaryData[17] = H
@@ -254,13 +254,14 @@ def WaterMeasurement():
             Probes = ProbesPlugged(i)    #checks which probes are plugged in that slave
             print(Probes)
             time.sleep(1)#0.1
-            for n in range (17)
-                if Probes == 1:
+            for n in range (16):
+                if Probes[n] == 1:
                     TemporaryData = FetchData(n,i)
                     time.sleep(1)#0.1
                     print(TemporaryData)
+                else: pass
                     
-            GetDHT()
+            GetDHT(i)
             time.sleep(1)#0.1
             DataToCSV()
 
@@ -273,6 +274,7 @@ while True: #-----------------------MAIN LOOP-----------------------------------
     Devices()
     Light()
     time.sleep(0.1)
+    WaterMeasurement()
     print('loopey loop')
   
     second_time = datetime.datetime.now()
