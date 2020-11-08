@@ -6,15 +6,11 @@ import minimalmodbus
 import datetime
 import time
 import serial
-#import Light #don't forget to change name of other module with actual function for lights
-#import Water #import functions for waterprobes
-#import WaterSequence #Sequence of functions and checkpoints to do water measurements
 import pandas as pd
 import numpy as np
 
 
 #--------------------------------------Creates all slaves - TIME 10 miliseconds for 100 -------------------------
-#first_time = datetime.datetime.now()
 IDList=[[] for j in range(100)] # creates list with j items to store the slaves' names
 
 for i in range (100):
@@ -24,9 +20,6 @@ SlaveID = [] # List to store the slaves (as objects)
 for i in range (100):
     SlaveID.append(minimalmodbus.Instrument('/dev/ttyUSB0', i)) #stores the slaves (objects) in the SlaveID list to be called in the code
 
-#second_time = datetime.datetime.now()
-#difference = second_time - first_time
-#print(difference)
 #--------------------------------------------------------------------------------------------------------------
 
 #----------------------------------------Polls All Slaves to Get Info------------------------------------------  
@@ -185,6 +178,9 @@ def ProbesPlugged(Slave):#ask hub to check which probes are plugged and convert 
     SlaveID[Slave].write_register(1, 1, 0)#array position 1 mode "plugged"
     time.sleep(10)
     num = SlaveID[Slave].read_register(4,0) #fetch info about which probes are plugged (position 4 of array, 0 decimal)
+    CurrentDevices.at[Slave,'C'] = num
+    print(CurrentDevices)
+    CurrentDevices.to_csv('Devices.csv', mode='w' ,index=False, header=False)
     for n in range(1,17):
         bitpos = n
         Probes[n-1] = (num >> (bitpos-1))&1
@@ -198,7 +194,8 @@ def ProbesPlugged(Slave):#ask hub to check which probes are plugged and convert 
 TemporaryData = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]#measure for level 0-15 and 16 = Temp°C, 17 = Humi%, 18 = slaveID + prodeID, 19 = Date
 
 def FetchData(ProbeID,Slave):
-
+    
+    global TemporaryData
     TemporaryData = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
     TemporaryData[18] = str(Slave) + '-' + str(ProbeID)#identifiyer for each plant
     SlaveID[Slave].write_register(2, ProbeID, 0) #tells which probe to get data from -- array position 2 probe n
@@ -268,7 +265,7 @@ def WaterMeasurement():
 #----------------------------------------------------------------------------------------------------------
 
 while True: #-----------------------MAIN LOOP-----------------------------------------------------
-    
+    #try
     first_time = datetime.datetime.now()
     Poll()
     Devices()
